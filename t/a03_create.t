@@ -9,6 +9,8 @@ use Test::DataDriven tests => 1;
 use Test::Differences;
 use File::Slurp;
 
+filters( { directory => 'chomp' } );
+
 # experimental: use at your own risk
 Test::DataDriven->create( 't/a03_create.data' );
 Test::DataDriven->run;
@@ -23,15 +25,15 @@ boo
 t/dummy/file1
 
 === Run more actions (2)
---- directory chomp
+--- directory
 t/dummy
 --- touch lines chomp
 t/dummy/file2
 --- mkpath lines chomp
 t/dummy/dir
 --- created lines chomp
-file2
 dir/
+file2
 EOT
 
 exit 0;
@@ -45,7 +47,7 @@ boo
 t/dummy/file1
 
 === Run more actions (2)
---- directory chomp
+--- directory
 t/dummy
 --- touch lines chomp
 t/dummy/file2

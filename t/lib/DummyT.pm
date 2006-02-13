@@ -14,7 +14,7 @@ BEGIN {
     mkpath( 't/dummy' );
 }
 
-__PACKAGE__->register( 'Test::DataDriven' );
+__PACKAGE__->register;
 
 sub run_mkpath : Run(mkpath) {
     my( $block, $section, @v ) = @_;
@@ -47,7 +47,7 @@ sub _lsd {
 
     delete $final{$_} foreach @orig;
 
-    my @final = map { s{^$directory/}//; $_ } keys %final;
+    my @final = sort map { s{^$directory/}//; $_ } keys %final;
 }
 
 sub post_created : End(created) {

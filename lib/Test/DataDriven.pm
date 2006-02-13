@@ -12,12 +12,12 @@ In the test module:
     package MyTest;
 
     use Test::DataDriven::Plugin -base;
-    __PACKAGE__->register( 'Test::DataDriven' );
+    __PACKAGE__->register;
 
     my $time;
     my $result;
 
-    sub check_first : Begin(add1) {
+    sub check_before : Begin(add1) {
         my( $block, $section_name, @data ) = @_;
         $time = time();
     }
@@ -27,7 +27,7 @@ In the test module:
         $result = add_1( $data[0] );
     }
 
-    sub check_it_up : End(result) {
+    sub check_after : End(result) {
         my( $block, $section_name, @data ) = @_;
         is( $result, $data[0] );
         ok( time() - $time < 1 ); # check side effects
@@ -57,46 +57,73 @@ In the test file:
 =head1 DESCRIPTION
 
 C<Test::Base> is great for writing data driven tests, but sometimes you
-need to test things that cannot easily be expressed using the
+need to test things that cannot be easily expressed using the
 filter-and-compare-output approach.
 
 C<Test::DataDriven> builds upon C<Test::Base> adding the ability to
 declare actions to be run for each section of each test block. In
 particular, the processing of each block is divided in three phases:
-"begin", "run" and "end".
+"begin", "run" and "end". The "begin" phase can be used to assess
+or establish the preconditions for the test. The "run" phase is used
+to perform some actions. The "end" phase can be used to check the side
+effects of the "run" phase.
 
 =cut
 
 use strict;
 use warnings;
 
-use Test::Base -base, '!run';
+require Test::Base; # see import() below for why require() and not use()
 use Fatal qw(open close);
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
-my( @plugins, %tags, @tags_re, $stop_run );
+my( %tags, @tags_re, $stop_run );
+
+# we jump through there hoops beacuse when Test::Base::import is called
+# and no test are run, Test::Base tries to run tests in its end block
+# this breaks when ExtUtils::MakeMaker/Module::Build require()
+# Test::DataDriven that use()s Test::Base
+my $first_time = 1;
+sub import_tb {
+    Test::Base->import( '-base', '!run' ) if $first_time;
+    $first_time = 0;
+}
+
+sub import {
+    import_tb();
+    goto &Test::Base::import;
+}
 
 =head1 METHODS
 
 =head2 register
 
     Test::DataDriven->register
-      ( plugin   => $plugin
-        tag      => 'section_name'
-        tag_re   => qr/match/ );
+      ( plugin   => $plugin,
+        tag      => 'section_name',
+        );
+
+    Test::DataDriven->register
+      ( plugin   => $plugin,
+        tag_re   => qr/match/,
+        );
 
 Registers a plugin whose C<begin>, C<run> and C<end> methods will be
 called for each section whose name equals the one specified with 'tag'
-or matches the regular expression specified with 'tag_re'.
+or matches the regular expression specified with 'tag_re'. At least one
+of 'tag' or 'tag_re' must be present.
+
+C<$plugin> can be either a class or object reference.
 
 =cut
 
 sub register {
+    import_tb();
+
     my( $class, %args ) = @_;
     my( $plugin, $tag, $tag_re ) = @args{qw(plugin tag tag_re)};
 
-    push @plugins, $plugin;
     push @{$tags{$tag}}, $plugin if $tag;
     push @tags_re, [ $tag_re, $plugin ] if $tag_re;
 }
@@ -114,7 +141,7 @@ sub _plugins_for {
     my( $class, $tag ) = @_;
     my @plugins =
       ( ( exists $tags{$tag} ? @{$tags{$tag}} : () ),
-        ( map { my( $re, $plugin ) = $_->[0];
+        ( map { my( $re, $plugin ) = @$_;
                 $tag =~ /$re/ ? ( $plugin ) : () }
               @tags_re ) );
 
@@ -150,18 +177,20 @@ sub create {
 sub create_fh { $create_fh }
 
 sub run {
+    import_tb();
+
     my( $self ) = @_;
 
     local $Test::Builder::Level = $Test::Builder::Level + 1;
 
     $stop_run = 0;
-    filters_delay;
+    filters_delay();
 
     my $end = $create ? 'endc' : 'end';
     if( $create ) {
         open $create_fh, '>', $create;
     }
-    for my $block ( blocks ) {
+    for my $block ( blocks() ) {
         last if $stop_run;
 
         $block->run_filters;
@@ -174,6 +203,16 @@ sub run {
 
     close $create_fh if $create_fh;
 }
+
+=head2 stop_run
+
+    Test::DataDriven->stop_run;
+
+Stop the tests being run.
+
+=cut
+
+sub stop_run { $stop_run = 1 }
 
 =head1 BUGS
 

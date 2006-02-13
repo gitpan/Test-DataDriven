@@ -1,6 +1,6 @@
 ---
 name: Test-DataDriven
-version: 0.01
+version: 0.02
 author:
   - 'Mattia Barbon <mbarbon@cpan.org>'
 abstract: when Test::Base is not enough
@@ -14,7 +14,7 @@ requires:
 provides:
   Test::DataDriven:
     file: lib/Test/DataDriven.pm
-    version: 0.01
+    version: 0.02
   Test::DataDriven::Plugin:
     file: lib/Test/DataDriven/Plugin.pm
 generated_by: Module::Build version 0.2611
